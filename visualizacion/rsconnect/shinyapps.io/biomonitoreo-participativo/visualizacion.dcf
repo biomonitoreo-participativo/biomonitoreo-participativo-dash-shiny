@@ -1,0 +1,12 @@
+name: visualizacion
+title: visualizacion
+username:
+account: biomonitoreo-participativo
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2533674
+bundleId: 3350742
+url: https://biomonitoreo-participativo.shinyapps.io/visualizacion/
+when: 1593843368.80008
+asMultiple: FALSE
+asStatic: FALSE

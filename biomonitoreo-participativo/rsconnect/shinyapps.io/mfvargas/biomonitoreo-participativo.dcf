@@ -1,0 +1,12 @@
+name: biomonitoreo-participativo
+title: biomonitoreo-participativo
+username:
+account: mfvargas
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2533235
+bundleId: 3348434
+url: https://mfvargas.shinyapps.io/biomonitoreo-participativo/
+when: 1593789440.04988
+asMultiple: FALSE
+asStatic: FALSE
