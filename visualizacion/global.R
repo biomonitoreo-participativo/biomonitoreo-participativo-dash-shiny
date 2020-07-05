@@ -9,6 +9,7 @@ library(sf)
 library(dplyr)
 library(plotly)
 library(R.utils)
+library(RANN)
 
 
 options(stringsAsFactors = FALSE)
