@@ -8,7 +8,17 @@ dashboardPage(
                     inputId = "select_scientific_name",
                     label = "Nombre científico",
                     choices = choices_scientific_name
-                ),                
+                ),        
+                selectInput(
+                    inputId = "select_location",
+                    label = "Sitio de monitoreo",
+                    choices = choices_location
+                ),                 
+                selectInput(
+                    inputId = "select_collection_code",
+                    label = "Conjunto de datos",
+                    choices = choices_collection_code
+                ),                                 
                 startExpanded = TRUE,
                 menuSubItem(text = "Mapa", tabName = "tab_lf_occurrences"),                
                 menuSubItem(text = "Tabla", tabName = "tab_dt_occurrences"),

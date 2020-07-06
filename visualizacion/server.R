@@ -1,17 +1,41 @@
 shinyServer(function(input, output) {
     
     filterOccurrences <- reactive({
-        if (input$select_scientific_name == "Todos") {
-            return (st_drop_geometry(sf_occurrences))
+        filteredOccurrences <- st_drop_geometry(sf_occurrences)
+        
+        # Filter by scientific name
+        if (input$select_scientific_name != "Todos") {
+            filteredOccurrences <-
+                subset(
+                    st_drop_geometry(sf_occurrences), 
+                    scientificName == input$select_scientific_name
+                ) %>%
+                arrange(eventDate, eventTime)
+            
+            FACTOR_INDIVIDUALS <- 1000
         }
         
-        return(
-            subset(
-                st_drop_geometry(sf_occurrences), 
-                scientificName == input$select_scientific_name
-            ) %>%
-            arrange(eventDate, eventTime)
-        )
+        # Filter by location (monitoring site)
+        if (input$select_location != "Todos") {
+            filteredOccurrences <-
+                subset(
+                    filteredOccurrences,
+                    location == input$select_location
+                ) %>%
+                arrange(eventDate, eventTime)
+        }
+        
+        # Filter by collection code
+        if (input$select_collection_code != "Todos") {
+            filteredOccurrences <-
+                subset(
+                    filteredOccurrences,
+                    collectionCode == input$select_collection_code
+                ) %>%
+                arrange(eventDate, eventTime)
+        }        
+
+        return(filteredOccurrences)
     })
     
     output$lf_occurrences <- renderLeaflet({
@@ -21,11 +45,37 @@ shinyServer(function(input, output) {
             sf_locations %>%
             subset(location %in% occurrences$location) # INCLUDE ONLY LOCATIONS PRESENT IN FILTERED OCCURRENCES!!!
         
+        locationsGrpByIndividualCount <-
+            occurrences %>%
+            group_by(locationID) %>%
+            summarize(individualCount = sum(individualCount, na.rm = TRUE)) %>%
+            left_join(
+                select(st_drop_geometry(sf_locations), location, locationID, decimalLongitude, decimalLatitude),
+                by = c("locationID")
+            )
+        
+        # Color palettes
+        palIndividualCount <- 
+            colorNumeric('Blues', locationsGrpByIndividualCount$individualCount)
+        
         leaflet() %>%
             addTiles() %>%
             addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%  
             addProviderTiles(providers$Stamen.TonerLite, group = "Stamen Toner Lite") %>%
             addProviderTiles(providers$Esri.WorldImagery, group = "ESRI World Imagery") %>%
+            addCircles(
+                lng = locationsGrpByIndividualCount$decimalLongitude,
+                lat = locationsGrpByIndividualCount$decimalLatitude,
+                radius = locationsGrpByIndividualCount$individualCount*FACTOR_INDIVIDUALS,
+                weight = 1,
+                color = palIndividualCount(locationsGrpByIndividualCount$individualCount),
+                fillColor = palIndividualCount(locationsGrpByIndividualCount$individualCount),
+                fillOpacity = 0.7,
+                label = paste0(
+                            "Individuos:", as.character(locationsGrpByIndividualCount$individualCount)
+                        ),
+                group = "Individuos en sitios"
+            ) %>%
             addCircleMarkers(
                 data = occurrences,
                 lng = ~decimalLongitude,
@@ -76,8 +126,17 @@ shinyServer(function(input, output) {
             ) %>%
             addLayersControl(
                 baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "ESRI World Imagery"),
-                overlayGroups = c("Registros de presencia", "Sitios de monitoreo"),
+                overlayGroups = c("Individuos en sitios",
+                                  "Registros de presencia",
+                                  "Sitios de monitoreo"
+                                  ),
                 options = layersControlOptions(collapsed = F)
+            ) %>%
+            addLegend(
+                title = "Individuos en sitios",
+                pal = palIndividualCount,
+                values = locationsGrpByIndividualCount$individualCount,
+                group = "Individuos en sitios"
             ) %>%
             addMiniMap(
                 position = "bottomleft",
@@ -87,6 +146,12 @@ shinyServer(function(input, output) {
             addScaleBar(
                 position = "bottomright", 
                 options = scaleBarOptions()
+            ) %>%
+            addMeasure(
+                position = "bottomright",
+                primaryLengthUnit = "meters",
+                secondaryLengthUnit = "kilometers",
+                localization = "es"
             )
     })     
 
