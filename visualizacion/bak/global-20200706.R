@@ -15,11 +15,10 @@ library(protolite)
 library(tibble)
 
 
-
 #### GLOBAL PARAMETERS ####
 
 # Radius parameter for nn2 (nearest neighbour search) function
-RADIUS <- 0.01
+RADIUS <- 0.02
 
 FACTOR_INDIVIDUALS <- 100
 
@@ -68,29 +67,141 @@ sf_occurrences_ebird_user <-
   mutate(collectionCode = "Biomonitoreo participativo") %>%
   subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
 
-# Occurrences from GBIF
-sf_occurrences_gbif <- 
-  st_read(
-    "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-gbif-indicators.csv",
-    options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
-  ) %>%
-  st_set_crs(4326) %>%
-  rename(
-    scientificName = species,
-  ) %>%  
-  mutate(vernacularName = "") %>%    
-  mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
-  mutate(eventTime = "") %>%  
-  mutate(individualCount = as.integer(individualCount)) %>%
-  mutate(decimalLongitude = as.double(decimalLongitude)) %>%
-  mutate(decimalLatitude = as.double(decimalLatitude)) %>%
-  mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
-  mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
-  subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
+# List of occurrences from GBIF
+list_occurrences_gbif <- 
+  occ_search(
+    scientificName = df_indicators$scientificName[1:10],
+    #scientificName = df_indicators$scientificName,
+    country = "CR", 
+    hasCoordinate = TRUE, 
+    hasGeospatialIssue = FALSE,
+    fields = c("species",
+               "individualCount",
+               "stateProvince",
+               "locality",
+               "decimalLongitude",
+               "decimalLatitude",
+               "eventDate",
+               "eventTime",
+               "collectionCode"
+    )    
+  )
 
 
-# Fix GBIF data
-if (length(sf_occurrences_gbif) >= 1) {
+# Convert GBIF list to sf object
+if (length(list_occurrences_gbif) >= 1) {
+  # First scientific name
+  sf_occurrences_gbif <-
+    st_as_sf(list_occurrences_gbif[[1]]$data, 
+             coords = c("decimalLongitude", "decimalLatitude"), 
+             crs = 4326,
+             remove = F
+    )
+  
+  #Check for missing columns
+  missing_columns <- F
+  if (!("individualCount" %in% colnames(sf_occurrences_gbif))) {
+    sf_occurrences_gbif$individualCount = 0
+    missing_columns <- T
+  }
+  if (!("locality" %in% colnames(sf_occurrences_gbif))) {
+    sf_occurrences_gbif$locality = ""
+    missing_columns <- T
+  }  
+  if (!("stateProvince" %in% colnames(sf_occurrences_gbif))) {
+    sf_occurrences_gbif$stateProvince = ""
+    missing_columns <- T
+  }      
+  if (!("eventTime" %in% colnames(sf_occurrences_gbif))) {
+    sf_occurrences_gbif$eventTime = ""
+    missing_columns <- T
+  }     
+  if (!("collectionCode" %in% colnames(sf_occurrences_gbif))) {
+    sf_occurrences_gbif$collectionCode = ""
+    missing_columns <- T
+  }   
+  if (missing_columns) {
+    # Rearrange columns
+    sf_occurrences_gbif <- 
+      sf_occurrences_gbif[
+        c("species", "individualCount", "stateProvince",
+          "locality", "decimalLongitude", "decimalLatitude", 
+          "eventDate", "eventTime", "collectionCode",
+          "geometry"
+        )
+        ]     
+    
+    missing_columns <- F
+  }
+  
+  # Remaining scientific names
+  if (length(list_occurrences_gbif) >= 1) {
+    for (i in 2:length(list_occurrences_gbif)) {
+      sf_occurrences_gbif_tmp <-
+        st_as_sf(list_occurrences_gbif[[i]]$data, 
+                 coords = c("decimalLongitude", "decimalLatitude"), 
+                 crs = 4326,
+                 remove = F
+        )    
+      
+      #Check for missing columns
+      missing_columns <- F
+      if (!("individualCount" %in% colnames(sf_occurrences_gbif_tmp))) {
+        sf_occurrences_gbif_tmp$individualCount = 0
+        missing_columns <- T
+      }  
+      if (!("locality" %in% colnames(sf_occurrences_gbif_tmp))) {
+        sf_occurrences_gbif_tmp$locality = ""
+        missing_columns <- T
+      }     
+      if (!("stateProvince" %in% colnames(sf_occurrences_gbif_tmp))) {
+        sf_occurrences_gbif_tmp$stateProvince = ""
+        missing_columns <- T
+      }      
+      if (!("eventTime" %in% colnames(sf_occurrences_gbif_tmp))) {
+        sf_occurrences_gbif_tmp$eventTime = ""
+        missing_columns <- T
+      }      
+      if (!("collectionCode" %in% colnames(sf_occurrences_gbif_tmp))) {
+        sf_occurrences_gbif_tmp$collectionCode = ""
+        missing_columns <- T
+      }       
+      if (missing_columns) {
+        # Rearrange columns
+        sf_occurrences_gbif_tmp <- 
+          sf_occurrences_gbif_tmp[
+            c("species", "individualCount", "stateProvince",
+              "locality", "decimalLongitude", "decimalLatitude", 
+              "eventDate", "eventTime", "collectionCode",
+              "geometry"
+            )
+            ]    
+        
+        missing_columns <- F
+      }
+      
+      sf_occurrences_gbif <-
+        rbind(
+          sf_occurrences_gbif,
+          sf_occurrences_gbif_tmp
+        )
+    }
+  }
+  
+  # Convert column types and add other columns
+  sf_occurrences_gbif <-
+    sf_occurrences_gbif %>%
+    rename(
+      scientificName = species
+    ) %>%
+    mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
+    mutate(individualCount = as.integer(individualCount)) %>%
+    mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+    mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+    mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+    mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+    mutate(vernacularName = "")
+  
   # Rearrange columns
   sf_occurrences_gbif <- 
     sf_occurrences_gbif[
@@ -105,19 +216,6 @@ if (length(sf_occurrences_gbif) >= 1) {
   # Fix NA and 0s
   sf_occurrences_gbif$individualCount[is.na(sf_occurrences_gbif$individualCount)] <- 1
   sf_occurrences_gbif$individualCount[sf_occurrences_gbif$individualCount == 0] <- 1
-  
-  # Fix collection codes
-  sf_occurrences_gbif <-
-    mutate(sf_occurrences_gbif, 
-      collectionCode = ifelse(grepl('EBIRD', collectionCode), 
-                              'eBird', 
-                              ifelse(grepl('Observations', collectionCode), 
-                                     'iNaturalist', 
-                                     collectionCode
-                               )
-                       )
-    )
-    
   
   # Merge with other occurrences datasets
   sf_occurrences <-
