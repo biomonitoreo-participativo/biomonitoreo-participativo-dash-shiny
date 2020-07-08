@@ -58,7 +58,7 @@ shinyServer(function(input, output) {
         palIndividualCount <- 
             colorNumeric('Blues', locationsGrpByIndividualCount$individualCount)
         
-        leaflet() %>%
+        leaflet(sf_grid) %>%
             addTiles() %>%
             addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%  
             addProviderTiles(providers$Stamen.TonerLite, group = "Stamen Toner Lite") %>%
@@ -72,7 +72,8 @@ shinyServer(function(input, output) {
                 fillColor = palIndividualCount(locationsGrpByIndividualCount$individualCount),
                 fillOpacity = 0.7,
                 label = paste0(
-                            "Individuos:", as.character(locationsGrpByIndividualCount$individualCount)
+                            occurrences$location,
+                            " (", as.character(locationsGrpByIndividualCount$individualCount), " individuos )"
                         ),
                 group = "Individuos en sitios"
             ) %>%
@@ -84,7 +85,8 @@ shinyServer(function(input, output) {
                 radius = 8,
                 fillColor = 'red',
                 fillOpacity = 1,
-                label = paste0(occurrences$scientificName, " (", occurrences$vernacularName, ")"),
+                label = paste0(occurrences$scientificName 
+                               ),
                 popup = paste0(
                             "<strong>Registro de presencia de especie</strong>", "<br>",
                             "<br>",
@@ -152,13 +154,14 @@ shinyServer(function(input, output) {
                 primaryLengthUnit = "meters",
                 secondaryLengthUnit = "kilometers",
                 localization = "es"
-            )
+            ) %>%
+            hideGroup("Individuos en sitios")
     })     
 
     output$dt_occurrences <- renderDT({
         data <- 
             filterOccurrences() %>%
-            select(scientificName, vernacularName, individualCount,
+            select(scientificName, vernacularName, individualCount, collectionCode,
                    location, locality, decimalLongitude,
                    decimalLatitude, eventDate, eventTime
                    )
@@ -166,7 +169,7 @@ shinyServer(function(input, output) {
         datatable(
             data, 
             rownames = FALSE,
-            colnames = c("Nombre científico", "Nombre común", "Cantidad",
+            colnames = c("Nombre científico", "Nombre común", "Cantidad", "Conjunto de datos",
                          "Sitio de monitoreo", "Localidad", "Longitud",
                          "Latitud", "Fecha", "Hora"
                          ),            
@@ -201,10 +204,7 @@ shinyServer(function(input, output) {
     
     output$plot_occurrences_by_month <- renderPlotly({
         data <- 
-            filterOccurrences()
-        
-        data <-
-            data %>%
+            filterOccurrences() %>%
             group_by(month) %>%
             summarize(individualCount = sum(individualCount, na.rm = TRUE)) %>%
             mutate (month = as.character(month))
@@ -222,4 +222,47 @@ shinyServer(function(input, output) {
             hovermode = "compare"
         )
     })     
+    
+    output$plot_occurrences_by_location <- renderPlotly({
+        data <- 
+            filterOccurrences() %>%
+            group_by(location) %>%
+            summarize(individualCount = sum(individualCount, na.rm = TRUE))
+        
+        plot_ly(
+            type = 'bar',
+            orientation = 'v',
+            x = data$location,
+            y = data$individualCount
+        ) %>%
+            layout(
+                title = "Cantidad de individuos observados por sitio de monitoreo",
+                yaxis = list(title = "Cantidad de individuos"),
+                xaxis = list(title = "Sitio de monitoreo"),
+                hovermode = "compare"
+            )
+        
+    })    
+    
+    output$plot_species_by_location <- renderPlotly({
+        data <- 
+            filterOccurrences() %>%
+            group_by(location) %>%
+            mutate(unique_species = n_distinct(scientificName))
+        
+        plot_ly(
+            type = 'bar',
+            orientation = 'v',
+            x = data$location,
+            y = data$unique_species
+        ) %>%
+            layout(
+                title = "Cantidad de especies observadas por sitio de monitoreo",
+                yaxis = list(title = "Cantidad de especies"),
+                xaxis = list(title = "Sitio de monitoreo"),
+                hovermode = "compare"
+            )
+        
+    })        
+    
 })

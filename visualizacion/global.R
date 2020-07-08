@@ -19,13 +19,17 @@ library(tibble)
 #### GLOBAL PARAMETERS ####
 
 # Radius parameter for nn2 (nearest neighbour search) function
-RADIUS <- 0.01
+RADIUS <- 0.02
 
 FACTOR_INDIVIDUALS <- 100
 
+LOAD_MERGED_OCCURRENCES = F
+SAVE_MERGED_OCCURRENCES = F
 
-options(stringsAsFactors = FALSE)
 
+options(stringsAsFactors = F)
+
+## END GLOBAL PARAMETERS ##
 
 # Indicators
 df_indicators <-
@@ -40,122 +44,153 @@ sf_locations <-
     options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
   )
 
-# Occurrences from eBird user account
-sf_occurrences_ebird_user <- 
+# Grid
+sf_grid <-
   st_read(
-    "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-ebird-user-biomonitoreo_aclap.csv",
-    options=c("X_POSSIBLE_NAMES=Longitude","Y_POSSIBLE_NAMES=Latitude")
-  ) %>%
-  st_set_crs(4326) %>%
-  select(Scientific.Name, Common.Name, Count, State.Province, Location, Longitude, Latitude, Date, Time) %>%
-  rename( # rename to DwC terms
-    scientificName = Scientific.Name,
-    vernacularName = Common.Name,
-    individualCount = Count,
-    stateProvince = State.Province,
-    locality = Location,
-    decimalLongitude = Longitude,
-    decimalLatitude = Latitude,
-    eventDate = Date,
-    eventTime = Time
-  ) %>%
-  mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
-  mutate(individualCount = as.integer(individualCount)) %>%
-  mutate(decimalLongitude = as.double(decimalLongitude)) %>%
-  mutate(decimalLatitude = as.double(decimalLatitude)) %>%
-  mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
-  mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
-  mutate(collectionCode = "Biomonitoreo participativo") %>%
-  subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
-
-# Occurrences from GBIF
-sf_occurrences_gbif <- 
-  st_read(
-    "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-gbif-indicators.csv",
-    options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
-  ) %>%
-  st_set_crs(4326) %>%
-  rename(
-    scientificName = species,
-  ) %>%  
-  mutate(vernacularName = "") %>%    
-  mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
-  mutate(eventTime = "") %>%  
-  mutate(individualCount = as.integer(individualCount)) %>%
-  mutate(decimalLongitude = as.double(decimalLongitude)) %>%
-  mutate(decimalLatitude = as.double(decimalLatitude)) %>%
-  mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
-  mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
-  subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
-
-
-# Fix GBIF data
-if (length(sf_occurrences_gbif) >= 1) {
-  # Rearrange columns
-  sf_occurrences_gbif <- 
-    sf_occurrences_gbif[
-      c("scientificName", "vernacularName", "individualCount",
-        "stateProvince", "locality", "decimalLongitude",
-        "decimalLatitude", "eventDate", "eventTime",
-        "geometry", "year", "month",
-        "collectionCode"
-      )
-      ]
-  
-  # Fix NA and 0s
-  sf_occurrences_gbif$individualCount[is.na(sf_occurrences_gbif$individualCount)] <- 1
-  sf_occurrences_gbif$individualCount[sf_occurrences_gbif$individualCount == 0] <- 1
-  
-  # Fix collection codes
-  sf_occurrences_gbif <-
-    mutate(sf_occurrences_gbif, 
-      collectionCode = ifelse(grepl('EBIRD', collectionCode), 
-                              'eBird', 
-                              ifelse(grepl('Observations', collectionCode), 
-                                     'iNaturalist', 
-                                     collectionCode
-                               )
-                       )
-    )
-    
-  
-  # Merge with other occurrences datasets
-  sf_occurrences <-
-    rbind(
-      sf_occurrences_ebird_user,
-      sf_occurrences_gbif
-    )
-} else {
-  # Nothing in GBIF list
-  sf_occurrences <- sf_occurrences_ebird_user
-}
-
-# Order occurrences
-sf_occurrences <-
-  sf_occurrences %>%
-  arrange(eventDate, eventTime)        
-
-# Get vectors with coordinates
-locations_coords <- do.call(rbind, st_geometry(sf_locations))
-occurrences_coords <- do.call(rbind, st_geometry(sf_occurrences))
-
-# Get closest location (monitoring site) for each locality
-closest <- nn2(locations_coords, occurrences_coords, k = 1, searchtype = "radius", radius = RADIUS)
-closest <- sapply(closest, cbind) %>% as_tibble
-
-# Add locationID column to occurrences dataset
-sf_occurrences$locationID <- ifelse(closest$nn.idx == 0, 0, closest$nn.idx)
-sf_occurrences$locationID <- as.character(sf_occurrences$locationID)
-
-# Add location column to occurrences dataset
-sf_occurrences <-
-  left_join(
-    sf_occurrences, 
-    select(st_drop_geometry(sf_locations), locationID, location)
+    "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/Cuadricula_4x4_nacional_wgs84.geojson"
   )
 
-# Remove rows with NA in location column
-sf_occurrences <- sf_occurrences[!is.na(sf_occurrences$location), ]
+if (LOAD_MERGED_OCCURRENCES) {
+  # Load previously merged occurrences
+  sf_occurrences <- 
+    st_read(
+      "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-merged.csv",
+      options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
+    ) %>%
+    st_set_crs(4326) %>%  
+    mutate(eventDate = as.Date(eventDate, format = "%Y/%m/%d")) %>%
+    mutate(eventTime = "") %>%  
+    mutate(individualCount = as.integer(individualCount)) %>%
+    mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+    mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+    mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+    mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+    subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
+} else {
+  # Occurrences from eBird user account
+  sf_occurrences_ebird_user <- 
+    st_read(
+      "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-ebird-user-biomonitoreo_aclap.csv",
+      options=c("X_POSSIBLE_NAMES=Longitude","Y_POSSIBLE_NAMES=Latitude")
+    ) %>%
+    st_set_crs(4326) %>%
+    select(Scientific.Name, Common.Name, Count, State.Province, Location, Longitude, Latitude, Date, Time) %>%
+    rename( # rename to DwC terms
+      scientificName = Scientific.Name,
+      vernacularName = Common.Name,
+      individualCount = Count,
+      stateProvince = State.Province,
+      locality = Location,
+      decimalLongitude = Longitude,
+      decimalLatitude = Latitude,
+      eventDate = Date,
+      eventTime = Time
+    ) %>%
+    mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
+    mutate(individualCount = as.integer(individualCount)) %>%
+    mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+    mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+    mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+    mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+    mutate(collectionCode = "Biomonitoreo participativo") %>%
+    subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
+  
+  # Occurrences from GBIF
+  sf_occurrences_gbif <- 
+    st_read(
+      "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences-gbif-indicators.csv",
+      options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
+    ) %>%
+    st_set_crs(4326) %>%
+    rename(
+      scientificName = species,
+    ) %>%  
+    mutate(vernacularName = "") %>%    
+    mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
+    mutate(eventTime = "") %>%  
+    mutate(individualCount = as.integer(individualCount)) %>%
+    mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+    mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+    mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+    mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+    subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
+  
+  
+  # Fix GBIF data
+  if (length(sf_occurrences_gbif) >= 1) {
+    # Rearrange columns
+    sf_occurrences_gbif <- 
+      sf_occurrences_gbif[
+        c("scientificName", "vernacularName", "individualCount",
+          "stateProvince", "locality", "decimalLongitude",
+          "decimalLatitude", "eventDate", "eventTime",
+          "geometry", "year", "month",
+          "collectionCode"
+        )
+        ]
+    
+    # Fix NA and 0s
+    sf_occurrences_gbif$individualCount[is.na(sf_occurrences_gbif$individualCount)] <- 1
+    sf_occurrences_gbif$individualCount[sf_occurrences_gbif$individualCount == 0] <- 1
+    
+    # Fix collection codes
+    sf_occurrences_gbif <-
+      mutate(sf_occurrences_gbif, 
+             collectionCode = ifelse(grepl('EBIRD', collectionCode), 
+                                     'eBird', 
+                                     ifelse(grepl('Observations', collectionCode), 
+                                            'iNaturalist', 
+                                            collectionCode
+                                     )
+             )
+      )
+    
+    
+    # Merge with other occurrences datasets
+    sf_occurrences <-
+      rbind(
+        sf_occurrences_ebird_user,
+        sf_occurrences_gbif
+      )
+  } else {
+    # Nothing in GBIF list
+    sf_occurrences <- sf_occurrences_ebird_user
+  }
+  
+  # Order occurrences
+  sf_occurrences <-
+    sf_occurrences %>%
+    arrange(eventDate, eventTime)        
+  
+  # Get vectors with coordinates
+  locations_coords <- do.call(rbind, st_geometry(sf_locations))
+  occurrences_coords <- do.call(rbind, st_geometry(sf_occurrences))
+  
+  # Get closest location (monitoring site) for each locality
+  closest <- nn2(locations_coords, occurrences_coords, k = 1, searchtype = "radius", radius = RADIUS)
+  closest <- sapply(closest, cbind) %>% as_tibble
+  
+  # Add locationID column to occurrences dataset
+  sf_occurrences$locationID <- ifelse(closest$nn.idx == 0, 0, closest$nn.idx)
+  sf_occurrences$locationID <- as.character(sf_occurrences$locationID)
+  
+  # Add location column to occurrences dataset
+  sf_occurrences <-
+    left_join(
+      sf_occurrences, 
+      select(st_drop_geometry(sf_locations), locationID, location)
+    )
+  
+  # Remove rows with NA in location column
+  sf_occurrences <- sf_occurrences[!is.na(sf_occurrences$location), ]
+  
+  # Save merged occurrences
+  if (SAVE_MERGED_OCCURRENCES) {
+    st_write(sf_occurrences, "occurrences-merged.csv")
+  }
+  
+}
+
 
 # List of scientific names in occurrences
 choices_scientific_name <- unique(sf_occurrences$scientificName)
