@@ -41,7 +41,8 @@ dashboardPage(
                 tabName = "tab_plots_occurrences",
                 plotlyOutput(outputId = "plot_occurrences_by_year"),
                 plotlyOutput(outputId = "plot_occurrences_by_month"),
-                plotlyOutput(outputId = "plot_occurrences_by_location")
+                plotlyOutput(outputId = "plot_occurrences_by_location"),
+                plotlyOutput(outputId = "plot_individualCountBySpecies")
                 # plotlyOutput(outputId = "plot_species_by_location")
             )
         )

@@ -263,6 +263,35 @@ shinyServer(function(input, output) {
                 hovermode = "compare"
             )
         
+    })       
+    
+    output$plot_individualCountBySpecies <- renderPlotly({
+        data <- 
+            filterOccurrences() %>%
+            group_by(scientificName) %>%
+            summarize(individualCount = sum(individualCount, na.rm = TRUE))  %>%
+            arrange(desc(individualCount))
+        
+        data %>%
+            mutate(scientificName = factor(scientificName, levels = scientificName)) %>%
+            top_n(n = 10, wt = individualCount) %>%  
+            plot_ly(x = ~ scientificName, 
+                    y = ~ individualCount, 
+                    type = "bar", 
+                    text = ~ individualCount,
+                    textposition = 'auto',
+                    marker = list(color = 'blue')
+            ) %>%
+            layout(yaxis = list(title = "Cantidad de individuos"),
+                   xaxis = list(title = ""),
+                   margin = list(l = 10,
+                                 r = 10,
+                                 b = 10,
+                                 t = 10,
+                                 pad = 2
+                   )
+            ) 
+        
     })        
     
 })

@@ -115,7 +115,6 @@ if (LOAD_MERGED_OCCURRENCES) {
     mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
     subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
   
-  
   # Fix GBIF data
   if (length(sf_occurrences_gbif) >= 1) {
     # Rearrange columns
@@ -177,15 +176,60 @@ if (LOAD_MERGED_OCCURRENCES) {
           "collectionCode"
         )
       ]        
+  
+    # Occurrences from Biomonitoreo Cameras
+    sf_occurrences_biomonitoreo_camera <- 
+      st_read(
+        "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences_biomonitoreo_camera.csv",
+        options=c("X_POSSIBLE_NAMES=Longitude","Y_POSSIBLE_NAMES=Latitude")
+      ) %>%
+      st_set_crs(4326) %>%
+      select(Genus, Species, Number.of.Animals, Sampling.Event, Longitude, Latitude, Photo.Date, Photo.time) %>%
+      rename( # rename to DwC terms
+        individualCount = Number.of.Animals,
+        locality = Sampling.Event,
+        decimalLongitude = Longitude,
+        decimalLatitude = Latitude,
+        eventDate = Photo.Date,
+        eventTime = Photo.time
+      ) %>%
+      mutate(scientificName = paste(Genus, Species)) %>%
+      mutate(vernacularName = "") %>%          
+      mutate(eventDate = as.Date(eventDate, format = "%Y-%m-%d")) %>%
+      mutate(individualCount = as.integer(individualCount)) %>%
+      mutate(stateProvince = "") %>%          
+      mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+      mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+      mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+      mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+      mutate(collectionCode = "Biomonitoreo participativo - cámaras") %>%
+      subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
     
-    
+    # Rearrange columns
+    sf_occurrences_biomonitoreo_camera <- 
+      sf_occurrences_biomonitoreo_camera[
+        c("scientificName", "vernacularName", "individualCount",
+          "stateProvince", "locality", "decimalLongitude",
+          "decimalLatitude", "eventDate", "eventTime",
+          "geometry", "year", "month",
+          "collectionCode"
+        )
+      ]     
+
     # Merge with other occurrences datasets
     sf_occurrences <-
       rbind(
         sf_occurrences_ebird_user,
         sf_occurrences_gbif,
-        sf_occurrences_biomonitoreo_app
+        sf_occurrences_biomonitoreo_app,
+        sf_occurrences_biomonitoreo_camera
       )
+    
+    # Summarize individuals by species
+    df_speciesCount <-
+      sf_occurrences %>%
+      group_by(scientificName) %>%
+      summarize(individualCount = sum(individualCount, na.rm = TRUE))    
   } else {
     # Nothing in GBIF list
     sf_occurrences <- sf_occurrences_ebird_user
