@@ -92,7 +92,7 @@ if (LOAD_MERGED_OCCURRENCES) {
     mutate(decimalLatitude = as.double(decimalLatitude)) %>%
     mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
     mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
-    mutate(collectionCode = "Biomonitoreo participativo") %>%
+    mutate(collectionCode = "Biomonitoreo participativo - eBird") %>%
     subset(scientificName %in% df_indicators$scientificName) # INCLUDE ONLY INDICATORS!!!
   
   # Occurrences from GBIF
@@ -145,12 +145,46 @@ if (LOAD_MERGED_OCCURRENCES) {
              )
       )
     
+    # Occurrences from Biomonitoreo App
+    sf_occurrences_biomonitoreo_app <- 
+      st_read(
+        "https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/occurrences_biomonitoreo.csv",
+        options=c("X_POSSIBLE_NAMES=decimalLongitude","Y_POSSIBLE_NAMES=decimalLatitude")
+      )  %>%
+      st_set_crs(4326) %>%
+      mutate(vernacularName = "") %>%    
+      mutate(eventDate = as.Date(
+        as.POSIXct(as.double(eventDate)/1000, origin="1970-01-01"), 
+        format = "%Y-%m-%d"
+      )
+      ) %>%
+      mutate(eventTime = "") %>%  
+      mutate(individualCount = as.integer(individualCount)) %>%
+      mutate(stateProvince = "") %>%
+      mutate(decimalLongitude = as.double(decimalLongitude)) %>%
+      mutate(decimalLatitude = as.double(decimalLatitude)) %>%
+      mutate(year = as.integer(format(as.Date(eventDate), format = "%Y"))) %>%
+      mutate(month = as.integer(format(as.Date(eventDate), format = "%m"))) %>%
+      mutate(collectionCode = "Biomonitoreo participativo - App")
+    
+    # Rearrange columns
+    sf_occurrences_biomonitoreo_app <- 
+      sf_occurrences_biomonitoreo_app[
+        c("scientificName", "vernacularName", "individualCount",
+          "stateProvince", "locality", "decimalLongitude",
+          "decimalLatitude", "eventDate", "eventTime",
+          "geometry", "year", "month",
+          "collectionCode"
+        )
+      ]        
+    
     
     # Merge with other occurrences datasets
     sf_occurrences <-
       rbind(
         sf_occurrences_ebird_user,
-        sf_occurrences_gbif
+        sf_occurrences_gbif,
+        sf_occurrences_biomonitoreo_app
       )
   } else {
     # Nothing in GBIF list
