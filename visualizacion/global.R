@@ -284,3 +284,9 @@ choices_location <- insert(choices_location, 1, "Todos")
 choices_collection_code <- unique(sf_occurrences$collectionCode)
 choices_collection_code <- sort(choices_collection_code)
 choices_collection_code <- insert(choices_collection_code, 1, "Todos")
+
+# sf object of protected areas
+sf_protected_areas <- st_read('https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/geo/areas-protegidas.geojson')
+
+# sf object of biological corridors
+sf_biological_corridors <- st_read('https://raw.githubusercontent.com/biomonitoreo-participativo/biomonitoreo-participativo-datos/master/geo/corredores-biologicos.geojson')

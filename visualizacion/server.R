@@ -59,10 +59,29 @@ shinyServer(function(input, output) {
             colorNumeric('Blues', locationsGrpByIndividualCount$individualCount)
         
         leaflet(sf_grid) %>%
-            addTiles() %>%
-            addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%  
+            setView(-83.3068622, 9.22145746, 10) %>%
+            addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
             addProviderTiles(providers$Stamen.TonerLite, group = "Stamen Toner Lite") %>%
-            addProviderTiles(providers$Esri.WorldImagery, group = "ESRI World Imagery") %>%
+            addProviderTiles(providers$CartoDB.DarkMatter, group = "CartoDB Dark Matter") %>%
+            addProviderTiles(providers$Esri.WorldImagery, group = "Imágenes de ESRI") %>%
+            addPolygons(
+                data = sf_protected_areas,
+                color = "Black",
+                fillColor = "transparent",
+                stroke = TRUE,
+                weight = 4.0,
+                popup = paste0(sf_protected_areas$siglas_cat, " ", sf_protected_areas$nombre_asp),
+                group = "Áreas protegidas"
+            ) %>%
+            addPolygons(
+                data = sf_biological_corridors,
+                color = "Purple",
+                fillColor = "transparent",
+                stroke = TRUE,
+                weight = 4.0,
+                popup = paste0(sf_biological_corridors$nombre_cb),
+                group = "Corredores biológicos"
+            ) %>%                        
             addCircles(
                 lng = locationsGrpByIndividualCount$decimalLongitude,
                 lat = locationsGrpByIndividualCount$decimalLatitude,
@@ -127,8 +146,10 @@ shinyServer(function(input, output) {
                 group = "Sitios de monitoreo"
             ) %>%
             addLayersControl(
-                baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "ESRI World Imagery"),
-                overlayGroups = c("Individuos en sitios",
+                baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "CartoDB Dark Matter", "Imágenes de ESRI"),
+                overlayGroups = c("Áreas protegidas",
+                                  "Corredores biológicos",
+                                  "Individuos en sitios",
                                   "Registros de presencia",
                                   "Sitios de monitoreo"
                                   ),
@@ -155,6 +176,8 @@ shinyServer(function(input, output) {
                 secondaryLengthUnit = "kilometers",
                 localization = "es"
             ) %>%
+            hideGroup("Áreas protegidas") %>%
+            hideGroup("Corredores biológicos") %>%
             hideGroup("Individuos en sitios")
     })     
 
@@ -172,10 +195,17 @@ shinyServer(function(input, output) {
             colnames = c("Nombre científico", "Nombre común", "Cantidad", "Conjunto de datos",
                          "Sitio de monitoreo", "Localidad", "Longitud",
                          "Latitud", "Fecha", "Hora"
-                         ),            
+                         ),    
+            extensions = c("Buttons"),
             options = list(searchHighlight = TRUE,
-                           pageLength = 15,
-                           language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json")
+                           lengthMenu = list(c(10, 15, 25, 50, 100, -1), c(10, 15, 25, 50, 100, "Todos")),
+                           dom = 'Bfrtlip',
+                           language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json"),
+                           buttons = list(list(extend='copy', text='Copiar'),
+                                          list(extend='csv', text='CSV'),
+                                          list(extend='csv', text='Excel'),
+                                          list(extend='csv', text='PDF')
+                                          )
                            )
         )
     })
