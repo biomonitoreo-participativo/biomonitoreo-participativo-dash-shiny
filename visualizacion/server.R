@@ -362,96 +362,194 @@ shinyServer(function(input, output) {
             config(locale = 'es')
     })        
     
-    output$plot_occurrences_by_year <- renderPlotly({
-        data <- 
+    output$plot_occurrences_individuals_scientificNames_by_year <- renderPlotly({
+        data <-
             filterOccurrences() %>%
             group_by(year) %>%
-            summarize(individualCount = sum(individualCount, na.rm = TRUE)) %>%
-            mutate (year = as.character(year))
-
+            summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
+                occurrences_count = n(), 
+                scientificName_count = n_distinct(scientificName, na.rm = TRUE)
+            )
+        
         plot_ly(
-            type = 'bar',
-            orientation = 'v',
-            x = data$year,
-            y = data$individualCount
+            data = data,
+            x = ~ year,
+            y = ~individualCount_sum,
+            type = "bar",            
+            name = "Individuos",
+            text = ~individualCount_sum, 
+            textposition = 'auto',
+            marker = list(color = "blue")
         ) %>%
+        add_trace(
+            y = ~ occurrences_count,
+            name = 'Observaciones',
+            text = ~occurrences_count, 
+            textposition = 'auto',
+            marker = list(color = "red")
+        ) %>%            
+        add_trace(
+            y = ~ scientificName_count,
+            name = 'Especies',
+            text = ~scientificName_count, 
+            textposition = 'auto',
+            marker = list(color = "green")
+        ) %>%               
         layout(
-            title = "Cantidad de individuos observados por año",
-            yaxis = list(title = "Cantidad de individuos"),
+            title = "Cantidades de individuos, observaciones y especies por año",
+            yaxis = list(title = "Individuos, observaciones y especies"),
             xaxis = list(title = "Año"),
+            barmode = 'group',
             hovermode = "compare"
-        )
+        ) %>%
+        config(locale = 'es')
         
     })
     
-    output$plot_occurrences_by_month <- renderPlotly({
-        data <- 
-            filterOccurrences() %>%
+    output$plot_occurrences_individuals_scientificNames_by_month <- renderPlotly({
+        data <-
+            filterOccurrences()
+        
+        data$eventDate <- as.Date(data$eventDate, "%Y-%m-%d")
+        
+        data <-
+            data %>%
+            mutate(month = format(eventDate, "%m"))
+        
+        data <-
+            data %>%
             group_by(month) %>%
-            summarize(individualCount = sum(individualCount, na.rm = TRUE)) %>%
-            mutate (month = as.character(month))
+            summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
+                occurrences_count = n(), 
+                scientificName_count = n_distinct(scientificName, na.rm = TRUE)
+            )
         
         plot_ly(
-            type = 'bar',
-            orientation = 'v',
-            x = data$month,
-            y = data$individualCount
+            data = data,
+            x = ~ month,
+            y = ~individualCount_sum,
+            type = "bar",            
+            name = "Individuos",
+            text = ~individualCount_sum, 
+            textposition = 'auto',
+            marker = list(color = "blue")
         ) %>%
+        add_trace(
+            y = ~ occurrences_count,
+            name = 'Observaciones',
+            text = ~occurrences_count, 
+            textposition = 'auto',
+            marker = list(color = "red")
+        ) %>%            
+        add_trace(
+            y = ~ scientificName_count,
+            name = 'Especies',
+            text = ~scientificName_count, 
+            textposition = 'auto',
+            marker = list(color = "green")
+        ) %>%               
         layout(
-            title = "Cantidad de individuos observados por mes",
-            yaxis = list(title = "Cantidad de individuos"),
+            title = "Cantidades de individuos, observaciones y especies por mes",
+            yaxis = list(title = "Individuos, observaciones y especies"),
             xaxis = list(title = "Mes"),
+            barmode = 'group',
             hovermode = "compare"
-        )
+        ) %>%
+        config(locale = 'es')
+        
     })     
     
-    output$plot_occurrences_by_location <- renderPlotly({
-        data <- 
+    output$plot_occurrences_individuals_scientificNames_by_location <- renderPlotly({
+        data <-
             filterOccurrences() %>%
             group_by(location) %>%
-            summarize(individualCount = sum(individualCount, na.rm = TRUE))
-        
-        plot_ly(
-            type = 'bar',
-            orientation = 'v',
-            x = data$location,
-            y = data$individualCount
-        ) %>%
+            summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
+                occurrences_count = n(), 
+                scientificName_count = n_distinct(scientificName, na.rm = TRUE)
+            ) %>%
+            arrange(desc(individualCount_sum))
+
+        data %>%
+            mutate(location = factor(location, levels = location)) %>%                    
+            plot_ly(
+                x = ~ location,
+                y = ~individualCount_sum,
+                type = "bar",            
+                name = "Individuos",
+                text = ~individualCount_sum, 
+                textposition = 'auto',
+                marker = list(color = "blue")
+            ) %>%
+            add_trace(
+                y = ~ occurrences_count,
+                name = 'Observaciones',
+                text = ~occurrences_count, 
+                textposition = 'auto',
+                marker = list(color = "red")
+            ) %>%          
+            add_trace(
+                y = ~ scientificName_count,
+                name = 'Especies',
+                text = ~scientificName_count, 
+                textposition = 'auto',
+                marker = list(color = "green")
+            ) %>%              
             layout(
-                title = "Cantidad de individuos observados por sitio de monitoreo",
-                yaxis = list(title = "Cantidad de individuos"),
+                title = "Cantidades de individuos, observaciones y especies por sitio de monitoreo",
+                yaxis = list(title = "Individuos, observaciones y especies"),
                 xaxis = list(title = "Sitio de monitoreo"),
+                barmode = 'group',
                 hovermode = "compare"
-            )
-        
+            ) %>%
+            config(locale = 'es')
     })    
     
-    output$plot_species_by_location <- renderPlotly({
-        data <- 
+    output$plot_occurrences_individuals_by_scientificName <- renderPlotly({
+        data <-
             filterOccurrences() %>%
-            group_by(location) %>%
-            mutate(unique_species = n_distinct(scientificName))
+            group_by(scientificName) %>%
+            summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
+                occurrences_count = n()
+            ) %>%
+            arrange(desc(individualCount_sum))
         
-        plot_ly(
-            type = 'bar',
-            orientation = 'v',
-            x = data$location,
-            y = data$unique_species
-        ) %>%
+        data %>%
+            mutate(scientificName = factor(scientificName, levels = scientificName)) %>%
+            plot_ly(
+                x = ~ scientificName,
+                y = ~individualCount_sum,
+                type = "bar",            
+                name = "Individuos",
+                text = ~individualCount_sum, 
+                textposition = 'auto',
+                marker = list(color = "blue")
+            ) %>%
+            add_trace(
+                y = ~ occurrences_count,
+                name = 'Observaciones',
+                text = ~occurrences_count, 
+                textposition = 'auto',
+                marker = list(color = "red")
+            ) %>%          
             layout(
-                title = "Cantidad de especies observadas por sitio de monitoreo",
-                yaxis = list(title = "Cantidad de especies"),
-                xaxis = list(title = "Sitio de monitoreo"),
+                title = "Cantidades de individuos y observaciones por especie",
+                yaxis = list(title = "Individuos y observaciones"),
+                xaxis = list(title = "Especie"),
+                barmode = 'group',
                 hovermode = "compare"
-            )
-        
-    })       
+            ) %>%
+            config(locale = 'es')
+    })        
     
     output$plot_individualCountBySpecies <- renderPlotly({
         data <- 
             filterOccurrences() %>%
             group_by(scientificName) %>%
-            summarize(individualCount = sum(individualCount, na.rm = TRUE))  %>%
+            summarize(individualCount = sum(individualCount, na.rm = TRUE)) %>%
             arrange(desc(individualCount))
         
         data %>%
