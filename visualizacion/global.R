@@ -19,7 +19,7 @@ library(tibble)
 #### GLOBAL PARAMETERS ####
 
 # Radius parameter for nn2 (nearest neighbour search) function
-RADIUS <- 0.02
+RADIUS <- 0.06
 
 FACTOR_INDIVIDUALS <- 100
 

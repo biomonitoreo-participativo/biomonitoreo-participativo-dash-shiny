@@ -33,7 +33,15 @@ shinyServer(function(input, output) {
                     collectionCode == input$select_collection_code
                 ) %>%
                 arrange(eventDate, eventTime)
-        }        
+        }     
+        
+        # Filter by date range
+        filteredOccurrences <-
+            subset(
+                filteredOccurrences,
+                eventDate >= as.Date(input$select_date_range[1], origin = "1970-01-01") & eventDate <= as.Date(input$select_date_range[2], origin = "1970-01-01")
+            ) %>%
+            arrange(eventDate, eventTime)
 
         return(filteredOccurrences)
     })
@@ -70,6 +78,7 @@ shinyServer(function(input, output) {
                 fillColor = "transparent",
                 stroke = TRUE,
                 weight = 4.0,
+                label = paste0(sf_protected_areas$siglas_cat, " ", sf_protected_areas$nombre_asp),
                 popup = paste0(sf_protected_areas$siglas_cat, " ", sf_protected_areas$nombre_asp),
                 group = "Áreas protegidas"
             ) %>%
@@ -79,6 +88,7 @@ shinyServer(function(input, output) {
                 fillColor = "transparent",
                 stroke = TRUE,
                 weight = 4.0,
+                label = paste0(sf_biological_corridors$nombre_cb),
                 popup = paste0(sf_biological_corridors$nombre_cb),
                 group = "Corredores biológicos"
             ) %>%                        
@@ -107,7 +117,7 @@ shinyServer(function(input, output) {
                 label = paste0(occurrences$scientificName 
                                ),
                 popup = paste0(
-                            "<strong>Registro de presencia de especie</strong>", "<br>",
+                            "<strong>Observación</strong>", "<br>",
                             "<br>",
                             "<strong>Nombre científico:</strong> ", occurrences$scientificName, "<br>",
                             "<strong>Nombre común:</strong> ", occurrences$vernacularName, "<br>",
@@ -126,7 +136,7 @@ shinyServer(function(input, output) {
                                 "<strong>Hora:</strong> ", occurrences$eventTime 
                             )
                         ),
-                group = "Registros de presencia"
+                group = "Observaciones"
             ) %>%
             addMarkers(
                 lng = locations$decimalLongitude,
@@ -150,7 +160,7 @@ shinyServer(function(input, output) {
                 overlayGroups = c("Áreas protegidas",
                                   "Corredores biológicos",
                                   "Individuos en sitios",
-                                  "Registros de presencia",
+                                  "Observaciones",
                                   "Sitios de monitoreo"
                                   ),
                 options = layersControlOptions(collapsed = F)
@@ -209,6 +219,41 @@ shinyServer(function(input, output) {
                            )
         )
     })
+    
+    output$plot_occurrences_individuals_scientificNames_by_date <- renderPlotly({
+        data <-
+            filterOccurrences() %>%
+            group_by(eventDate) %>%
+            summarize(
+                occurrences_count = n(), 
+                individualCount_sum = sum(individualCount, na.rm = TRUE), 
+                scientificName_count = n_distinct(scientificName, na.rm = TRUE)
+            )
+        
+        data$eventDate <- as.Date(data$eventDate, "%Y-%m-%d")
+        
+        plot_ly(data = data,
+                x = ~ eventDate,
+                y = ~ occurrences_count, 
+                name = 'Observaciones', 
+                type = 'scatter',
+                mode = 'lines',
+                line = list(color = "blue")) %>%
+            add_trace(y = ~ individualCount_sum,
+                      name = 'Individuos',
+                      mode = 'lines',
+                      line = list(color = "black")) %>%
+            add_trace(y = ~ scientificName_count,
+                      name = 'Especies',
+                      mode = 'lines',
+                      line = list(color = "green")) %>%
+            layout(title = "Cantidad de observaciones, individuos y especies por fecha",
+                   yaxis = list(title = "Observaciones, individuos, especies"),
+                   xaxis = list(title = "Fecha"),
+                   legend = list(x = 0.1, y = 0.9),
+                   hovermode = "compare") %>%
+            config(locale = 'es')
+    })    
     
     output$plot_occurrences_by_year <- renderPlotly({
         data <- 

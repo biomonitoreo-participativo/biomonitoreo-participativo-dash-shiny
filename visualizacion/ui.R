@@ -3,7 +3,7 @@ dashboardPage(
     dashboardSidebar(
         sidebarMenu(
             menuItem(
-                text = "Registros de presencia", 
+                text = "Observaciones", 
                 selectInput(
                     inputId = "select_scientific_name",
                     label = "Nombre científico",
@@ -18,7 +18,15 @@ dashboardPage(
                     inputId = "select_collection_code",
                     label = "Conjunto de datos",
                     choices = choices_collection_code
-                ),                                 
+                ),      
+                dateRangeInput(
+                    inputId = "select_date_range", 
+                    label = "Fecha de observación",
+                    start = "2020-01-01",
+                    end   = Sys.Date(),
+                    separator = " a ",
+                    language = "es"
+                ),
                 startExpanded = TRUE,
                 menuSubItem(text = "Mapa", tabName = "tab_lf_occurrences"),                
                 menuSubItem(text = "Tabla", tabName = "tab_dt_occurrences"),
@@ -39,6 +47,7 @@ dashboardPage(
             ),
             tabItem(
                 tabName = "tab_plots_occurrences",
+                plotlyOutput(outputId = "plot_occurrences_individuals_scientificNames_by_date"),
                 plotlyOutput(outputId = "plot_occurrences_by_year"),
                 plotlyOutput(outputId = "plot_occurrences_by_month"),
                 plotlyOutput(outputId = "plot_occurrences_by_location"),

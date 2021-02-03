@@ -5,9 +5,9 @@ account: biomonitoreo-participativo
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2533674
-bundleId: 4170018
+bundleId: 4172631
 url: https://biomonitoreo-participativo.shinyapps.io/visualizacion/
-when: 1612248209.74946
+when: 1612297634.82618
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: bak/global-20200706.R
