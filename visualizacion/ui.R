@@ -47,7 +47,9 @@ dashboardPage(
             ),
             tabItem(
                 tabName = "tab_plots_occurrences",
+                plotlyOutput(outputId = "plot_occurrences_individuals_scientificNames_totals"),
                 plotlyOutput(outputId = "plot_occurrences_individuals_scientificNames_by_date"),
+                plotlyOutput(outputId = "plot_occurrences_individuals_scientificNames_cumulative_by_date"),
                 plotlyOutput(outputId = "plot_occurrences_by_year"),
                 plotlyOutput(outputId = "plot_occurrences_by_month"),
                 plotlyOutput(outputId = "plot_occurrences_by_location"),

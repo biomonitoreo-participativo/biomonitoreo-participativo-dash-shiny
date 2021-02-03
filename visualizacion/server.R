@@ -220,13 +220,55 @@ shinyServer(function(input, output) {
         )
     })
     
+    output$plot_occurrences_individuals_scientificNames_totals <- renderPlotly({
+        data <-
+            filterOccurrences() %>%
+            summarize(
+                occurrences_count = n(), 
+                individualCount_sum = sum(individualCount, na.rm = TRUE), 
+                scientificName_count = n_distinct(scientificName, na.rm = TRUE)
+            )
+        
+        plot_ly(
+            data = data,
+            y = ~individualCount_sum,
+            type = "bar",            
+            name = "Individuos",
+            text = ~individualCount_sum, 
+            textposition = 'auto',
+            marker = list(color = "blue")
+        ) %>%
+        add_trace(
+            y = ~ occurrences_count,
+            name = 'Observaciones',
+            text = ~occurrences_count, 
+            textposition = 'auto',
+            marker = list(color = "red")
+        ) %>%
+        add_trace(
+            y = ~ scientificName_count,
+            name = 'Especies',
+            text = ~scientificName_count, 
+            textposition = 'auto',
+            marker = list(color = "green")
+        ) %>%            
+        layout(
+            title = "Totales de individuos, observaciones y especies",
+            xaxis = list(title = ""),
+            yaxis = list(title = "Individuos, observaciones y especies"),
+            bargap = 10
+        ) %>%
+        config(locale = 'es')
+        
+    })        
+    
     output$plot_occurrences_individuals_scientificNames_by_date <- renderPlotly({
         data <-
             filterOccurrences() %>%
             group_by(eventDate) %>%
             summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
                 occurrences_count = n(), 
-                individualCount_sum = sum(individualCount, na.rm = TRUE), 
                 scientificName_count = n_distinct(scientificName, na.rm = TRUE)
             )
         
@@ -234,26 +276,91 @@ shinyServer(function(input, output) {
         
         plot_ly(data = data,
                 x = ~ eventDate,
-                y = ~ occurrences_count, 
-                name = 'Observaciones', 
+                y = ~ individualCount_sum, 
+                name = 'Individuos', 
                 type = 'scatter',
                 mode = 'lines',
                 line = list(color = "blue")) %>%
-            add_trace(y = ~ individualCount_sum,
-                      name = 'Individuos',
+            add_trace(y = ~ occurrences_count,
+                      name = 'Observaciones',
                       mode = 'lines',
-                      line = list(color = "black")) %>%
+                      line = list(color = "red")) %>%
             add_trace(y = ~ scientificName_count,
                       name = 'Especies',
                       mode = 'lines',
                       line = list(color = "green")) %>%
-            layout(title = "Cantidad de observaciones, individuos y especies por fecha",
-                   yaxis = list(title = "Observaciones, individuos, especies"),
+            layout(title = "Cantidades de individuos, observaciones y especies por fecha",
+                   yaxis = list(title = "Individuos, observaciones y especies"),
                    xaxis = list(title = "Fecha"),
                    legend = list(x = 0.1, y = 0.9),
                    hovermode = "compare") %>%
             config(locale = 'es')
-    })    
+    })
+    
+    output$plot_occurrences_individuals_scientificNames_cumulative_by_date <- renderPlotly({
+        data1 <-
+            filterOccurrences() %>%
+            group_by(eventDate) %>%
+            summarize(
+                individualCount_sum = sum(individualCount, na.rm = TRUE),                
+                occurrences_count = n()
+            )
+        
+        data1 <-
+            data1 %>%
+            mutate(occurrences_cum = cumsum(occurrences_count), 
+                   individualCount_cum = cumsum(individualCount_sum)
+            )
+        
+        data1$eventDate <- as.Date(data1$eventDate, "%Y-%m-%d")
+        
+        
+        data2 <-
+            filterOccurrences()
+        
+        data2$eventDate <- as.Date(data2$eventDate, "%Y-%m-%d")
+        
+        data2 <-
+            data2 %>%
+            arrange(eventDate) %>%
+            mutate(scientificName_unique_entries = cumsum(!duplicated(scientificName)))
+        
+        data2 <-
+            data2 %>%
+            group_by(eventDate) %>%
+            summarise(scientificName_unique_entries = last(scientificName_unique_entries))
+        
+        data <-
+            data.frame(
+                eventDate = data1$eventDate,
+                individualCount_cum = data1$individualCount_cum,
+                occurrences_cum = data1$occurrences_cum,
+                scientificName_cum = data2$scientificName_unique_entries
+            )
+        
+        
+        plot_ly(data = data,
+                x = ~ eventDate,
+                y = ~ individualCount_cum, 
+                name = 'Individuos', 
+                type = 'scatter',
+                mode = 'lines',
+                line = list(color = "blue")) %>%
+            add_trace(y = ~ occurrences_cum,
+                      name = 'Observaciones',
+                      mode = 'lines',
+                      line = list(color = "red")) %>%
+            add_trace(y = ~ scientificName_cum,
+                      name = 'Especies',
+                      mode = 'lines',
+                      line = list(color = "green")) %>%            
+            layout(title = "Acumulados de individuos, observaciones y especies por fecha",
+                   yaxis = list(title = "Individuos, observaciones y especies"),
+                   xaxis = list(title = "Fecha"),
+                   legend = list(x = 0.1, y = 0.9),
+                   hovermode = "compare") %>%
+            config(locale = 'es')
+    })        
     
     output$plot_occurrences_by_year <- renderPlotly({
         data <- 
